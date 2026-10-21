@@ -1,0 +1,361 @@
+---
+title: "FIT3152_A1"
+author: "TerrenceSiau"
+date: "2026-04-08"
+output: html_document
+---
+
+#Q1: Descriptive Analysis
+```{r}
+rm(list = ls())
+set.seed(34216375) # Your Student Number
+VCData = read.csv("WVSExtract.csv")
+VC = VCData[sample(1:nrow(VCData),100000, replace=FALSE),]
+VC = VC[,c(1:3,sort(sample(4:50,25,replace=FALSE)),
+sort(sample(51:65,8,replace=FALSE)))]
+dim(VC)
+```
+
+
+```{r}
+summary(VC)
+```
+```{r}
+VCQ1 <- VC %>%
+  mutate(across(where(is.numeric), ~ ifelse(. < 0, NA, .)))
+colSums(is.na(VCQ1))
+```
+
+
+```{r}
+library(dplyr)
+```
+
+
+
+
+
+```{r}
+VC1 <- VC %>%
+  mutate(across(where(is.numeric), ~ ifelse(. < 0, NA, .))) %>%
+  group_by(Country) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
+
+View(VC1)
+```
+
+
+
+```{r}
+png("boxplot_PRI.png", width = 1200, height = 800, res = 150)
+
+par(mar = c(7, 2, 0, 1))
+boxplot(VC1[,4:36], las = 2)
+PRI <- VC1[41,4:36]
+points(1:length(PRI), PRI, col = "red", pch = 19)
+
+dev.off()
+```
+
+```{r}
+par(mar = c(7, 2, 0, 1))
+boxplot(VC1[,29:36], las=2)
+PRI <- VC1[41,29:36]
+points(1:length(PRI), PRI, col="red", pch=19)
+```
+
+```{r}
+VC2 <- VC %>%
+  mutate(across(where(is.numeric), ~ ifelse(. < 0, NA, .))) %>%
+  filter(Country == "PRI")
+
+View(VC2)
+```
+
+
+```{r}
+model <- lm(CWomensMvt ~ PolScale + PolLeader + PrivateState +PolInterest + PolBoycott + PolDemons + PolExperts + HardWork +ILFriends + ILReligion + ICQHardWork + ICQImagination + ICQTolerance + ICQThrift + ACTReligion + ACTSport + ACTArtsEd + ACTUnions + ACTProfessional + ACTHumanitarian + Happy + Health + Trusted + LifeSatis + FutureWork, data= VC2)
+summary(model)
+```
+
+```{r}
+VC3 <- VC %>%
+  mutate(across(where(is.numeric), ~ ifelse(. < 0, NA, .))) %>%
+  filter(Country != "PRI")
+
+View(VC3)
+```
+
+```{r}
+model1 <- lm(CWomensMvt ~ PolScale + PolLeader + PrivateState +PolInterest + PolBoycott + PolDemons + PolExperts + HardWork +ILFriends + ILReligion + ICQHardWork + ICQImagination + ICQTolerance + ICQThrift + ACTReligion + ACTSport + ACTArtsEd + ACTUnions + ACTProfessional + ACTHumanitarian + Happy + Health + Trusted + LifeSatis + FutureWork, data= VC3)
+
+summary(model1)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+VCGroup <- VC %>%
+  mutate(Focus = ifelse(Country == "PRI", 1, 2))
+
+VCQ3 <- VCGroup %>%
+  mutate(across(-c(Year, Focus), ~ ifelse(. < 0, NA, .))) %>%
+  group_by(Year, Focus) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = "drop") %>%
+  mutate(across(-c(Year, Focus), ~ as.numeric(scale(.)))) %>%
+  arrange(Year) %>%
+  select(-Wave)
+
+VCQ3Long <- VCQ3 %>%
+  pivot_longer(
+    cols = -c(Year, Focus),
+    names_to = "Variable",
+    values_to = "Value"
+  ) %>%
+  mutate(Value = ifelse(is.nan(Value), NA, Value))
+
+```
+
+
+```{r}
+
+h <- ggplot(VCQ3Long, aes(x = Year, y = Variable, fill = Value)) +
+  geom_tile(colour = "Black",  size=0.4) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", na.value = "grey90") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 18)) +
+  facet_wrap(~Focus)
+
+ggsave("heat_map.png", plot = h,
+       width = 18, height = 12, dpi = 300)
+```
+
+```{r}
+
+VCQ3b1 <- VCGroup %>%
+  mutate(across(-c(Year, Focus, Country), ~ ifelse(. < 0, NA, .))) %>%
+  mutate(across(-c(Year, Focus, Country), ~ as.numeric(scale(.)))) %>%
+  filter(Country == "PRI") %>%
+  select(-Wave, -CEU)
+  
+  
+VCQ3b2 <- VCGroup %>%
+  mutate(across(-c(Year, Focus, Country), ~ ifelse(. < 0, NA, .))) %>%
+  mutate(across(-c(Year, Focus, Country), ~ as.numeric(scale(.)))) %>%
+  filter(Country != "PRI") %>%
+  select(-Wave, -CEU)
+  
+print(unique(VCQ3b$Year))
+  
+```
+
+
+
+
+```{r}
+library(dplyr)
+install.packages("backports")
+library(broom)
+```
+
+
+```{r}
+bump_data_focus <- data.frame()
+predictors <- c("PolScale","PolLeader","PrivateState","PolInterest",
+                "PolBoycott","PolDemons","PolExperts","ILFriends",
+                "ILReligion","ICQHardWork","ICQImagination","ICQTolerance",
+                "ICQThrift","Happy","Health","Trusted","LifeSatis",
+                "FutureWork","ACTReligion","ACTSport","ACTArtsEd",
+                "ACTUnions","ACTProfessional","ACTHumanitarian","HardWork")
+predictors2001 <- c("PolScale","PolLeader","PrivateState","PolInterest",
+                "PolBoycott","PolDemons","PolExperts","ILFriends",
+                "ILReligion","ICQHardWork","ICQImagination","ICQTolerance",
+                "ICQThrift","Happy","Health","Trusted","LifeSatis",
+                "FutureWork")
+
+confidence <- c("CPress", "CParliament", "CCivilService", "CTelevision", "CGovernment", "CMajComp", "CWomensMvt")
+
+for (c in confidence) {
+  formula <- as.formula(
+      paste(c, "~", paste(predictors, collapse = " + "))
+    )
+  
+  lm1995 <- lm(formula, data=VCQ3b1[VCQ3b1$Year == 1995,])
+  
+  temp1995 <- tidy(lm1995) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 1995,
+           estimate = abs(estimate),
+           focus = 1)
+  
+  bump_data_focus <- bind_rows(bump_data_focus, temp1995)
+}
+
+for (c in confidence) {
+  formula <- as.formula(
+      paste(c, "~", paste(predictors, collapse = " + "))
+    )
+  
+  lm1995 <- lm(formula, data=VCQ3b2[VCQ3b2$Year == 1995,])
+  
+  temp1995 <- tidy(lm1995) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 1995,
+           estimate = abs(estimate),
+           focus = 2)
+  
+  bump_data_focus <- bind_rows(bump_data_focus, temp1995)
+}
+
+
+
+for (c in confidence){
+  formula <- as.formula(
+      paste(c, "~", paste(predictors2001, collapse = " + "))
+    )
+  
+  lm2001 <- lm(formula, data=VCQ3b1[VCQ3b1$Year == 2001,])
+  
+  temp2001 <- tidy(lm2001) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 2001,
+           estimate = abs(estimate),
+           focus = 1)
+  bump_data_focus <- bind_rows(bump_data_focus, temp2001)
+}
+
+for (c in confidence){
+  formula <- as.formula(
+      paste(c, "~", paste(predictors2001, collapse = " + "))
+    )
+  
+  lm2001 <- lm(formula, data=VCQ3b2[VCQ3b2$Year == 2001,])
+  
+  temp2001 <- tidy(lm2001) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 2001,
+           estimate = abs(estimate),
+           focus = 2)
+  bump_data_focus <- bind_rows(bump_data_focus, temp2001)
+}
+
+
+
+for (c in confidence) {
+  formula <- as.formula(
+      paste(c, "~", paste(predictors, collapse = " + "))
+    )
+  
+  lm2018 <- lm(formula, data=VCQ3b1[VCQ3b1$Year == 2018,])
+  
+  temp2018 <- tidy(lm2018) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 2018,
+           estimate = abs(estimate),
+           focus = 1)
+  bump_data_focus <- bind_rows(bump_data_focus, temp2018)
+}
+
+
+for (c in confidence) {
+  formula <- as.formula(
+      paste(c, "~", paste(predictors, collapse = " + "))
+    )
+  
+  lm2018 <- lm(formula, data=VCQ3b2[VCQ3b2$Year == 2018,])
+  
+  temp2018 <- tidy(lm2018) %>% 
+    filter(term!= "(Intercept)") %>%
+    filter(p.value < 0.05) %>%
+    mutate(confidence = c,
+           year = 2018,
+           estimate = abs(estimate),
+           focus = 2)
+  bump_data_focus <- bind_rows(bump_data_focus, temp2018)
+}
+
+
+
+
+
+```
+
+```{r}
+
+bump_data_focus <- bump_data_focus %>%
+  group_by(focus, confidence, year) %>%
+  arrange(p.value, desc(estimate)) %>%
+  mutate(rank = row_number())%>%
+  ungroup()
+
+label_start <- bump_data_focus %>%
+  group_by(focus, confidence, term) %>%
+  filter(year == 1995)
+
+label_end <- bump_data_focus %>%
+  group_by(focus, confidence, term) %>%
+  filter(year == 2018)
+```
+
+```{r}
+label_start_mid <-bump_data_focus %>%
+  group_by(confidence, term) %>%
+  filter(year != 2018)
+
+
+```
+
+
+```{r}
+p <- ggplot(bump_data_focus,
+       aes(x = year,
+           y = rank,
+           group = term,
+           color = term)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2) +
+  scale_y_reverse() +
+  facet_grid(focus ~ confidence,
+           labeller = labeller(focus = c("1" = "Puerto Rico",
+                                         "2" = "Other Countries")))+
+  labs(
+    title = "Top Predictors of Confidence Across Years",
+    x = "Year",
+    y = "Rank (1 = most important)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  geom_text(data = label_start,
+            aes(label = term),
+            hjust = -0.2,
+            size = 3,
+            vjust=1.5,
+            show.legend = FALSE) +
+  geom_text(data = label_end,
+            aes(label = term),
+            hjust =1.2,
+            vjust=1.5,
+            size = 3,
+            show.legend = FALSE)
+
+
+```
+
+```{r}
+ggsave("bump_chart_focus.png", plot = p,
+       width = 18, height = 12, dpi = 300)
+```
+
